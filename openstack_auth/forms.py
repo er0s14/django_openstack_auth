@@ -66,6 +66,16 @@ class Login(django_auth_forms.AuthenticationForm):
             self.fields['region'].initial = self.fields['region'].choices[0][0]
             self.fields['region'].widget = forms.widgets.HiddenInput()
 
+        # add idp choices if federation is enabled
+        from openstack_auth import utils
+        if utils.get_keystone_version() >= 3:
+            #keystone_client = utils.get_keystone_client()
+            #client.federation.identity_providers.list()
+            #FIXME: need public API
+            choices = (('http://localhost:5000/v3/OS-FEDERATION/identity_providers/goog/protocols/oidc/websso/', 'goog'),
+                       ('Other', 'Other'),)
+            self.fields['idp'] = forms.ChoiceField(label=_("Identity Provider"), choices=choices)
+
     @staticmethod
     def get_region_choices():
         default_region = (settings.OPENSTACK_KEYSTONE_URL, "Default Region")
@@ -73,6 +83,7 @@ class Login(django_auth_forms.AuthenticationForm):
 
     @sensitive_variables()
     def clean(self):
+        #import pdb; pdb.set_trace()
         default_domain = getattr(settings,
                                  'OPENSTACK_KEYSTONE_DEFAULT_DOMAIN',
                                  'Default')
@@ -80,6 +91,7 @@ class Login(django_auth_forms.AuthenticationForm):
         password = self.cleaned_data.get('password')
         region = self.cleaned_data.get('region')
         domain = self.cleaned_data.get('domain', default_domain)
+        idp = self.cleaned_data.get('idp')
 
         if not (username and password):
             # Don't authenticate, just let the other validators handle it.

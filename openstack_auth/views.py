@@ -23,6 +23,7 @@ from django.utils import functional
 from django.utils import http
 from django.views.decorators.cache import never_cache  # noqa
 from django.views.decorators.csrf import csrf_protect  # noqa
+from django.views.decorators.csrf import csrf_exempt  # noqa
 from django.views.decorators.debug import sensitive_post_parameters  # noqa
 from keystoneclient import exceptions as keystone_exceptions
 from keystoneclient.v2_0 import client as keystone_client_v2
@@ -49,6 +50,13 @@ LOG = logging.getLogger(__name__)
 @never_cache
 def login(request, template_name=None, extra_context=None, **kwargs):
     """Logs a user in using the :class:`~openstack_auth.forms.Login` form."""
+   # If the user filled in idp field, that authenetication mechanism takes
+   # precedence, but only temporary fix, need to have a form that toggles
+    if 'idp' in request.POST:
+        idp = request.POST.get('idp')
+        if idp:
+            return shortcuts.redirect(idp)
+
     # If the user is already authenticated, redirect them to the
     # dashboard straight away, unless the 'next' parameter is set as it
     # usually indicates requesting access to a page that requires different
@@ -103,6 +111,22 @@ def login(request, template_name=None, extra_context=None, **kwargs):
         request.session['region_name'] = region_name
     return res
 
+@sensitive_post_parameters()
+@csrf_exempt
+@never_cache
+def websso(request):
+    """Logs a user in using the :class:`~openstack_auth.forms.Login` form."""
+    #from django.http import HttpResponse
+    #token = request.GET.get('token')
+    redirect_url = getattr(settings, 'LOGIN_REDIRECT_URL')
+    auth_url = getattr(settings, 'OPENSTACK_KEYSTONE_URL')
+    #import pdb; pdb.set_trace()
+    request.user = auth.authenticate(request=request, auth_url=auth_url)
+    auth_user.set_session_from_user(request, request.user)
+    auth.login(request, request.user)
+    if request.session.test_cookie_worked():
+        request.session.delete_test_cookie()
+    return HttpResponseRedirect(redirect_url)
 
 def logout(request, login_url=None, **kwargs):
     """Logs out the user if he is logged in. Then redirects to the log-in page.

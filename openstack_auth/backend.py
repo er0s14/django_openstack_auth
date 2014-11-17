@@ -84,14 +84,19 @@ class KeystoneBackend(object):
 
         keystone_client = utils.get_keystone_client()
         try:
-            client = keystone_client.Client(
-                user_domain_name=user_domain_name,
-                username=username,
-                password=password,
-                auth_url=auth_url,
-                insecure=insecure,
-                cacert=ca_cert,
-                debug=settings.DEBUG)
+            if 'token' in request.GET:
+                token = request.GET.get("token")
+                import pdb; pdb.set_trace()
+                client = keystone_client.Client(token=token,auth_url=auth_url,insecure=insecure,cacert=ca_cert,debug=settings.DEBUG)
+            else:
+                client = keystone_client.Client(
+                    user_domain_name=user_domain_name,
+                    username=username,
+                    password=password,
+                    auth_url=auth_url,
+                    insecure=insecure,
+                    cacert=ca_cert,
+                    debug=settings.DEBUG)
 
             unscoped_auth_ref = client.auth_ref
             unscoped_token = auth_user.Token(auth_ref=unscoped_auth_ref)
@@ -107,6 +112,8 @@ class KeystoneBackend(object):
                     "Please try again later.")
             LOG.debug(str(exc))
             raise exceptions.KeystoneAuthException(msg)
+
+        #import pdb; pdb.set_trace()
 
         # Check expiry for our unscoped auth ref.
         self.check_auth_expiry(unscoped_auth_ref)
